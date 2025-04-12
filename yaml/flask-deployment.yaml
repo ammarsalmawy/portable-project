@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+  namespace: final
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flask
+  template:
+    metadata:
+      labels:
+        app: flask
+    spec:
+      containers:
+      - name: flask
+        image: 392563869454.dkr.ecr.us-east-1.amazonaws.com/final-project:flaskv0.1
+        ports:
+        - containerPort: 81
+        env:
+        # Database Configuration
+        - name: DBHOST
+          value: "mysql-service"  # Matches MySQL Service DNS
+        - name: DBPORT
+          value: "3306"
+        - name: DBUSER
+          value: "root"
+        - name: DBPWD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        
+        # S3 Configuration (From ConfigMap)
+        - name: S3_BUCKET_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: S3_BUCKET_NAME
+        - name: S3_OBJECT_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: S3_OBJECT_KEY
+        
+        # AWS Credentials (From Secret)
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_SECRET_ACCESS_KEY
+        - name: AWS_SESSION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_SESSION_TOKEN
+        
+        # Static Configuration
+        - name: MY_NAME
+          value: "Ammar Salmawy"
+      imagePullSecrets:
+      - name: ecr-secret  # For ECR access
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-service
+  namespace: final
+spec:
+  type: NodePort
+  selector:
+    app: flask
+  ports:
+    - protocol: TCP
+      port: 81
+      targetPort: 81
+      nodePort: 30081  # Access via <NodeIP>:30081
